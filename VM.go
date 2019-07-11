@@ -1,6 +1,5 @@
 package main
 
-import "io"
 
 /*
 Language Rules:
@@ -14,7 +13,26 @@ Language Rules:
 ] => Always used with the opening square bracket, if the cell doesn't contrain 0 then set the instruction pointer to the postion after the matching bracket
 */
 
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"io"
+)
 
+
+func main() {
+	fileName := os.Args[1]
+	code, err  := ioutil.ReadFile(fileName)
+
+	if err != nil {
+			fmt.Fprint(os.Stderr, "error: %s\n", err)
+			os.Exit(-1)
+	}
+
+	m := SpawnVM(string(code), os.Stdin, os.Stdout)
+	m.Execute()
+}
 
 
 //Type for the BrainFuck VM
