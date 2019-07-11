@@ -72,23 +72,9 @@ func (m *VM) Execute() {
 
 		switch ins {
 		case '+': 
-				ap := m.ip
-				counter := 0
-				for m.memory[ap] == '+' {
-					counter ++ 
-					ap ++
-				}
-				m.dp = ap
-				m.memory[m.dp] += counter
+				m.memory[m.dp]++
 		case '-': 
-				ap := m.ip
-				counter := 0
-				for m.memory[ap] == '-' {
-					counter ++ 
-					ap ++
-				}
-				m.dp = ap
-				m.memory[m.dp]  -= counter
+				m.memory[m.dp]--
 		case '>': 
 				m.dp++
 		case '<':
