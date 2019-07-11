@@ -13,12 +13,15 @@ Language Rules:
 ] => Always used with the opening square bracket, if the cell doesn't contrain 0 then set the instruction pointer to the postion after the matching bracket
 */
 
+//Useage: go build -o machine && ./machine ./[code].b
+
 import (
 	"fmt"
 	"io/ioutil"
 	"os"
 	"io"
 )
+
 
 
 func main() {
@@ -62,7 +65,6 @@ func SpawnVM (code string, in io.Reader, out io.Writer) *VM {
 	}
 }
 
-
 //Executes code for the VM 
 func (m *VM) Execute() {
 	for m.ip < len(m.code) {
@@ -70,14 +72,28 @@ func (m *VM) Execute() {
 
 		switch ins {
 		case '+': 
-				m.memory[m.dp]++
+				ap := m.ip
+				counter := 0
+				for m.memory[ap] == '+' {
+					counter ++ 
+					ap ++
+				}
+				m.dp = ap
+				m.memory[m.dp] += counter
 		case '-': 
-				m.memory[m.dp]--
+				ap := m.ip
+				counter := 0
+				for m.memory[ap] == '-' {
+					counter ++ 
+					ap ++
+				}
+				m.dp = ap
+				m.memory[m.dp]  -= counter
 		case '>': 
 				m.dp++
 		case '<':
 				m.dp--	
-		case '.': 
+		case '.':
 				m.putChar()
 		case ',':
 				m.readChar()
@@ -113,10 +129,10 @@ func (m *VM) Execute() {
 	}
 }
 
+
 //============
 //IO Methods
 //============
-
 
 func (m *VM) readChar() {
 	n, err := m.input.Read(m.buf)
