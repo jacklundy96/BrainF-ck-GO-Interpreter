@@ -33,16 +33,20 @@ func main() {
 			os.Exit(-1)
 	}
 
-	m := SpawnVM(string(code), os.Stdin, os.Stdout)
+	compiler := SpawnCompiler(string(code))
+	instructions := compiler.Compile()
+
+	m := SpawnVM(instructions, os.Stdin, os.Stdout)
 	m.Execute()
 }
 
+type InstructionType byte 
 
 //Type for the BrainFuck VM
 type VM struct {
 
 	//Code in and Instruction pointer
-	code string 
+	code []*Instruction 
 	ip int
 	
 	//Memory allocation, data pointer and buffer slice 
@@ -55,14 +59,102 @@ type VM struct {
 	output io.Writer
 }
 
+type Compiler struct {
+	code string 
+	codeLength int 
+	position int 
+	instructions []*Instruction
+}
+
+const (
+	Plus InstructionType = '+'
+	Minus InstructionType = '-'
+	Right InstructionType = '>'
+	Left InstructionType = '<'
+	PutChar InstructionType = '.'
+	ReadChar InstructionType = ','
+	JumpIfZero InstructionType = '['
+	JumpIfNotZero InstructionType = ']'
+)
+
+type Instruction struct {
+	Type InstructionType
+	Arguement int
+}
+
 //Creates a new brainfuck VM 
-func SpawnVM (code string, in io.Reader, out io.Writer) *VM {
+func SpawnVM (instructions []*Instruction, in io.Reader, out io.Writer) *VM {
 	return &VM {
-		code: code, 
+		code: instructions, 
 		input: in, 
 		output: out, 
 		buf: make([]byte, 1),
 	}
+}
+
+func SpawnCompiler (code string) *Compiler {
+	return &Compiler {
+		code: code,
+		codeLength: len(code),
+		instructions: []*Instruction{},
+	}
+}
+
+func (c *Compiler) Compile() []*Instruction {
+	loopStack := []int{}
+	
+	for c.position < c.codeLength {
+		current := c.code[c.position]
+
+		switch current {
+		case '+':
+			c.CompileFoldableInstruction('+',Plus)
+		case '-':
+			c.CompileFoldableInstruction('-',Minus)
+		case '<':
+			c.CompileFoldableInstruction('<',Left)
+		case '>':
+			c.CompileFoldableInstruction('>',Right)
+		case '.':
+			c.CompileFoldableInstruction('.',PutChar)
+		case ',':
+			c.CompileFoldableInstruction(',',ReadChar)
+		case '[':
+			insPos := c.EmitWithArg(JumpIfZero, 0)
+			loopStack = append(loopStack, insPos)
+		case ']':
+			// Pop position of last JumpIfZero ("[") instruction off stack
+			openInstruction := loopStack[len(loopStack)-1]
+			loopStack = loopStack[:len(loopStack)-1]
+	
+			// Emit the new JumpIfNotZero ("]") instruction,
+			// with correct position as argument
+			closeInstructionPos := c.EmitWithArg(JumpIfNotZero, openInstruction)
+	
+			// Patch the old JumpIfZero ("[") instruction with new position
+			c.instructions[openInstruction].Arguement = closeInstructionPos
+		}
+		c.position++
+	}
+
+	return c.instructions
+}
+
+func (c *Compiler) CompileFoldableInstruction(char byte, insType InstructionType) {
+	count := 1
+
+	for c.position < c.codeLength-1 && c.code[c.position+1] == char {
+		count++
+		c.position++
+	}
+
+	c.EmitWithArg(insType, count)
+}
+
+func (c *Compiler) EmitWithArg(insType InstructionType, arg int) int {
+	ins := &Instruction{Type: insType, Arguement: arg}
+	c.instructions = append(c.instructions, ins)
+	return len(c.instructions) - 1
 }
 
 //Executes code for the VM 
@@ -70,51 +162,37 @@ func (m *VM) Execute() {
 	for m.ip < len(m.code) {
 		ins := m.code[m.ip]
 
-		switch ins {
-		case '+': 
-				m.memory[m.dp]++
-		case '-': 
-				m.memory[m.dp]--
-		case '>': 
-				m.dp++
-		case '<':
-				m.dp--	
-		case '.':
-				m.putChar()
-		case ',':
-				m.readChar()
-		case '[':
-				if m.memory[m.dp] == 0 {
-					depth := 1 
-					for depth != 0 {
-						m.ip ++
-						switch m.code[m.ip] {
-						case '[':
-							depth++
-						case ']':
-							depth--
-						}
-					} 
+		switch ins.Type {
+		case Plus: 
+				m.memory[m.dp] += ins.Arguement
+		case Minus: 
+				m.memory[m.dp] -= ins.Arguement
+		case Right: 
+				m.dp += ins.Arguement
+		case Left:
+				m.dp -= ins.Arguement	
+		case PutChar:
+				for i := 0; i < ins.Arguement; i++ {
+					m.putChar()
 				}
-		case ']':  
-			if m.memory[m.dp] != 0 {
-				depth := 1 
-				for depth != 0 {
-					m.ip --
-					switch m.code[m.ip] {
-					case ']':
-						depth++
-					case '[':
-						depth--
-					}
-				} 
+		case ReadChar:
+			for i := 0; i < ins.Arguement; i++ {
+				m.readChar()
 			}
+		case JumpIfZero:
+				if m.memory[m.dp] == 0 {
+					m.ip = ins.Arguement
+					continue
+				}
+		case JumpIfNotZero:  
+				if m.memory[m.dp] != 0 {
+					m.ip = ins.Arguement
+					continue
+				}
 		}
-
 		m.ip++
 	}
 }
-
 
 //============
 //IO Methods
