@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"io"
-	"src/pkg/apps/Compiler"
-	"src/pkg/apps/VM"
+	Compiler "BFGOCompiler/pkg/Compiler"
 )
 
 /*
@@ -32,9 +30,9 @@ func main() {
 			os.Exit(-1)
 	}
 
-	compiler := SpawnCompiler(string(code))
+	compiler := Compiler.SpawnCompiler(string(code))
 	instructions := compiler.Compile()
 
-	m := SpawnVM(instructions, os.Stdin, os.Stdout)
+	m := Compiler.SpawnVM(instructions, os.Stdin, os.Stdout)
 	m.Execute()
 }
